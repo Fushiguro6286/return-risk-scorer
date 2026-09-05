@@ -10,7 +10,7 @@ Track 02 · AI Risk Manager · defense-only
 ```bash
 python run_demo.py                  # artifacts fresh
 uvicorn app.api:app --port 8000     # for the live /decide call
-streamlit run app/dashboard.py      # leave open on tab 3
+streamlit run app/dashboard.py      # leave open on screen 03
 ```
 
 Have ready: `reports/money_confusion_matrix.png`, the dashboard (tabs 3 and 4), a
@@ -62,7 +62,7 @@ terminal with the `/decide` curl already typed, `MODEL_CARD.md`, `ARCHITECTURE.m
 
 ## [1:30–3:00] Per-action thresholds, live — 90s ★ THE DIFFERENTIATOR
 
-**Switch to the dashboard, tab ③ "Policy simulator".**
+**Switch to the dashboard, screen ③ "Policy simulator".**
 
 > "Here's the part I actually care about. 'What's the threshold' is the wrong question — it
 > depends entirely on **what you're going to do**.
@@ -74,7 +74,7 @@ terminal with the `/decide` curl already typed, `MODEL_CARD.md`, `ARCHITECTURE.m
 >
 > So each one gets its **own** optimal threshold."
 
-**Show the table (README §5.1 or tab ③'s action dropdown):**
+**Show the table (README §5.1 or screen ③'s action dropdown):**
 
 | Action | FP cost | t\* | Flagged |
 |---|---|---|---|
@@ -153,7 +153,7 @@ wants to block.*
 > cannot hit them with the harshest action. Writing that in a model card is free.
 > Enforcing it in code costs money.
 >
-> *(switch to dashboard tab 4)*
+> *(switch to dashboard screen 04)*
 >
 > And every decision lands here. Append-only, each record hash-chained to the one
 > before it — edit any past decision and this integrity check names the row. That's the

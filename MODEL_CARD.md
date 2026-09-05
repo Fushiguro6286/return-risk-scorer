@@ -190,7 +190,7 @@ Retrain quarterly, always on holdout-corrected data, always re-running the leaka
 ```bash
 pip install -r requirements.txt
 python run_demo.py     # fixed seed 42; regenerates every number in this card
-pytest tests/ -q       # 82 tests
+pytest tests/ -q       # 232 tests
 ```
 
 Every constant lives in `config.yaml`. Data: Chen, D. (2019), *Online Retail II*, UCI ML

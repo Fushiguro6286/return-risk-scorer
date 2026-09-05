@@ -4,6 +4,11 @@
 
 Razorpay AI Buildathon · Track 02 (AI Risk Manager) · **defense-only**
 
+**▶ [Try it live](https://return-risk-scorer-qmvpbhr59dotzkkxzpdrfe.streamlit.app/)** — score an
+order, drag the threshold and watch the money move, inspect the audit ledger, or train the whole
+pipeline on your own export. No login. (Free tier: the first visit after a quiet spell takes
+~30s to wake.)
+
 ---
 
 ![Rupee-denominated confusion matrix](reports/money_confusion_matrix.png)
@@ -43,7 +48,7 @@ That single picture is the whole argument. Everything below is the evidence that
 ```bash
 pip install -r requirements.txt
 python run_demo.py          # ~70s: downloads the data, trains, writes all 40 artifacts
-pytest tests/ -q            # 148 tests, incl. row-by-row leakage proofs and ledger tamper tests
+pytest tests/ -q            # 232 tests, incl. row-by-row leakage proofs and ledger tamper tests
 ```
 
 **Run it on your own data:**
@@ -590,7 +595,7 @@ temporal embargo, same leakage guards, same money layer, same 40 artifacts.
 python run_demo.py --data-file data/sample/merchant_export_sample.csv
 ```
 
-Or upload it in the dashboard's **⑤ Run on your data** tab and watch it train.
+Or upload it on the dashboard's **⑤ Run on your data** screen and watch it train.
 
 ### 12.1 What it reads
 
@@ -682,14 +687,14 @@ Each upload becomes a named dataset with three directories of its own:
 | Model | `models/` | `models_user/<key>/` |
 | Ledger | `audit/` | `audit_user/<key>/` |
 
-Nothing is shared. The picker at the top of the page chooses which one every tab reads
+Nothing is shared. The dataset picker in the sidebar chooses which one every screen reads
 from — scoring, portfolio, policy simulator, governance and reports all follow it, so
 "score an order" on your data uses your model, your thresholds and your ledger. The
 registry lives in `data/datasets/registry.json`.
 
 Two consequences worth stating. **Removing a dataset is complete**: the upload, the
-model, all 40 artifacts and the decision ledger go together, and the **⑤ Run on your
-data → Manage datasets** tab does it behind a confirmation. **The baseline is
+model, all 40 artifacts and the decision ledger go together, and **⑤ Run on your
+data → Manage datasets** does it behind a confirmation. **The baseline is
 read-only** — it is registered like any other dataset so the code path stays single,
 but the UI refuses to delete it, because it is the reference every other run is read
 against.
@@ -746,10 +751,13 @@ src/returnrisk/
   audit.py             hash-chained ledger     <- what the system DID
   decision.py          composes the three above
   responder.py         Claude prose + grounding check (never decides)
+  datasets.py          the dataset registry - one model+ledger+reports per upload
+  report_print.py      the printable run report (self-contained HTML -> PDF)
 app/api.py             FastAPI - /score, /decide, /audit/*, /policy, /respond/*
-app/dashboard.py       Streamlit - 6 tabs incl. governance, upload & all reports
+app/dashboard.py       Streamlit - 6 screens incl. governance, upload & all reports
+app/theme.py           the dashboard's design system: tokens, CSS, composed blocks
 scripts/               notebook builder + sample-export generator
-tests/                 178 tests
+tests/                 232 tests
 ARCHITECTURE.md        how it is built, and why
 notebooks/             01_eda_and_label · 02_train_eval
 ```

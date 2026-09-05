@@ -122,7 +122,7 @@ into the ordering with no code change — the same config-driven property
 `test_config_drives_behaviour.py` already asserts for thresholds.
 
 **The guardrails cost money, and that is reported rather than hidden.** Some suppressed
-orders were genuine returns we chose not to prevent. The dashboard's governance tab
+orders were genuine returns we chose not to prevent. The dashboard's governance screen
 shows how many of the last 200 decisions a guardrail changed.
 
 ---
@@ -252,9 +252,13 @@ dates, non-numeric quantity or price, or no return information at all. Warnings 
 history, missing customer ids, a collapsing SKU prefix — are reported and the run
 continues.
 
-**Isolation.** A dashboard run writes to `reports_user/` + `models_user/` through the
-existing `paths` config, so experimenting never overwrites the committed UCI baseline.
-The Reports tab reads either.
+**Isolation.** Every upload is registered in `datasets.py` and gets three directories of
+its own -- `reports_user/<key>/`, `models_user/<key>/`, `audit_user/<key>/` -- redirected
+through the existing `paths` config. Nothing is shared between datasets, which is what
+makes "remove this dataset" a complete operation and makes it impossible for an upload to
+overwrite the committed UCI baseline. The sidebar picker selects which dataset every
+screen reads from, so scoring, portfolio, policy simulation, governance and reports all
+follow it. The baseline is registered read-only and the UI refuses to delete it.
 
 ---
 
@@ -279,13 +283,31 @@ src/returnrisk/
   audit.py               hash-chained ledger         <- what the system did
   decision.py            composes the three above
   responder.py           Claude prose + grounding check
+  datasets.py            dataset registry   <- one model+ledger+reports per upload
+  report_print.py        the printable run report (self-contained HTML -> PDF)
   baselines / sensitivity / stability / segments / capacity / selective_labels
   plots.py               every chart, one house style
 
 app/api.py               FastAPI - /score, /decide, /audit/*, /policy, /respond/*
-app/dashboard.py         Streamlit - 6 tabs incl. upload & all reports
-tests/                   178 tests
+app/dashboard.py         Streamlit - 6 screens incl. upload & all reports
+app/theme.py             design system: tokens, injected CSS, composed blocks
+tests/                   232 tests
 ```
+
+**`datasets.py`** is what makes the dashboard multi-tenant without a database. A `Dataset`
+owns four paths derived from its key, `config_for()` rewrites a `Config` to point at them,
+and every loader in the dashboard is cached *by dataset key* -- without that, switching
+datasets would hand back the previous one's model from Streamlit's process-wide cache. The
+FX rate travels with the dataset too: `money.gbp_to_inr` is 105 for the pound-denominated
+UCI wholesaler, but 1.0 for a rupee-priced upload. Applying 105x to rupees would make a
+missed return dwarf a false alarm, collapse t\* toward zero, and have the policy recommend
+actioning every order -- while looking perfectly healthy.
+
+**`report_print.py`** exists because `Ctrl+P` on a Streamlit page cannot be made to work:
+it renders inside nested scroll containers and lazily mounts anything below the fold, so
+the browser prints one clipped screen with the charts unmounted. The generated document
+sidesteps that -- every image inlined as a data URI, so it renders identically from an
+archive or an email attachment years after `reports/` has moved on.
 
 ---
 
