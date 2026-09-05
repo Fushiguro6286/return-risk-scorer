@@ -6,16 +6,20 @@ data/raw/
 *.xlsx
 *.zip
 *.parquet
+# ...except the baseline profile store, which the served model needs (see below).
+!models/customer_profiles.parquet
 
 # Charts and evidence tables in reports/ ARE committed -- the README embeds them
-# and they are the submission's evidence. Two exceptions:
-# 1.2MB of derived per-order data (the dashboard regenerates it)
-reports/scored_test_orders.csv
+# and they are the submission's evidence. One exception:
 # scratch images written by the notebooks
 reports/nb_*.png
 
-# Build artifacts: regenerate with `make demo` (~80s)
-models/
+# The baseline model, its profile store and the scored book ARE committed, at a
+# combined 2MB. They are build artifacts by nature -- `make demo` regenerates all
+# three in ~35s -- but a hosted deploy clones the repo and never runs the pipeline,
+# so excluding them means the dashboard boots with no model and the Portfolio and
+# Policy screens render empty. A demo that works on a fresh clone is worth 2MB.
+# Anything trained from the dashboard stays out; that is per-deployment data.
 
 # Python
 __pycache__/

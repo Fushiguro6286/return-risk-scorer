@@ -1,0 +1,22 @@
+# Streamlit's own theme, set to match app/theme.py.
+#
+# The injected CSS does the real styling, but it only lands after the first paint.
+# Without these values the app flashes white on every load and on every rerun, which
+# on a hosted demo is the first thing anyone sees.
+
+[theme]
+base = "dark"
+primaryColor = "#4d7cfe"
+backgroundColor = "#06060a"
+secondaryBackgroundColor = "#101019"
+textColor = "#e8eaf2"
+font = "sans serif"
+
+[server]
+# Merchant exports are line-level and get large; the default 200MB cap is fine, but
+# uploads are the one thing a demo visitor will try to break.
+maxUploadSize = 200
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
