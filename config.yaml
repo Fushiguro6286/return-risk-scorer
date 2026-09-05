@@ -1,0 +1,215 @@
+# ---------------------------------------------------------------------------
+# Return-Risk Scorer — single source of truth.
+# Every number the pipeline uses lives here. No magic numbers in code.
+# Changing a cost below changes t* with no code edit (see tests/test_config_drives_threshold.py).
+# ---------------------------------------------------------------------------
+
+seed: 42
+
+data:
+  # "uci"       -> real Online Retail II (UCI id 502). This is the primary dataset.
+  # "synthetic" -> tiny generated frame, used ONLY as a pipeline smoke-test.
+  # "file"      -> your own transaction export. See `file:` below.
+  source: uci
+
+  # --- Bring your own data ----------------------------------------------------
+  # Set source: file and point `path` at a CSV / TSV / Excel / Parquet / JSON /
+  # SQLite / zip export of LINE-LEVEL transactions. The dashboard's "Run on your
+  # data" tab writes this block for you after you confirm the column mapping.
+  #
+  # Leave `mapping` empty to let the loader infer it -- it will refuse to run
+  # rather than guess a required column wrong.
+  file:
+    path: null            # e.g. data/raw/my_orders.csv
+    table: null           # SQLite table, zip member, or Excel sheet (optional)
+    sheet: null
+    # How returns are recorded in your file:
+    #   "cancellation" -> a reversing row with negative quantity (the UCI convention)
+    #   "flag"         -> a returned / is_return / status column per row
+    return_mode: cancellation
+    # FLAG MODE ONLY, and only when there is no return-date column: how many days
+    # after the order a return is assumed to become known. This is a real modelling
+    # assumption -- it decides when a past return enters a customer's history.
+    assumed_return_lag_days: 21
+    # Multiply your amounts by this to get rupees. Leave 1.0 if already in INR.
+    # NOTE: money.gbp_to_inr is applied on top; set that to 1.0 when using a file.
+    currency_to_inr: 1.0
+    mapping: null         # {columns: {invoice: "...", ...}} once confirmed
+  raw_dir: data/raw
+  sample_dir: data/sample
+  uci_url: "https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip"
+  # Rows with no Customer ID cannot have customer history and cannot be linked to a
+  # cancellation by customer; they are dropped and the drop rate is reported.
+  drop_missing_customer: true
+  min_order_value_gbp: 1.0
+  max_order_value_gbp: 50000.0   # guards against a handful of absurd wholesale outliers
+
+label:
+  # An order is y=1 if a later CANCELLATION invoice from the same customer returns
+  # at least one of its stock codes within `lookahead_days`.
+  lookahead_days: 90
+  # A cancellation line is matched to the most recent prior purchase of the same
+  # (customer, stock code) that still has unreturned quantity.
+  require_same_customer: true
+  require_same_stockcode: true
+
+split:
+  # Temporal, never random. Fractions are of the ordered timeline of orders.
+  train_frac: 0.60
+  calib_frac: 0.15
+  test_frac: 0.25
+  # Orders in the last `embargo_days` of train are dropped: their 90-day return
+  # window is not fully observed yet, so their label would be optimistically 0.
+  embargo_days: 90
+
+features:
+  # Product-level, label-derived aggregates are TRAIN-ONLY and out-of-fold within train.
+  target_encoding_folds: 5
+  target_encoding_smoothing: 50.0
+  # Reference price per stock code (for the discount proxy) is also train-only.
+  discount_reference: median
+  top_n_countries: 12
+
+model:
+  type: lightgbm
+  params:
+    objective: binary
+    n_estimators: 400
+    learning_rate: 0.05
+    num_leaves: 31
+    min_child_samples: 100
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    reg_lambda: 5.0
+    max_depth: -1
+    verbose: -1
+  calibration: isotonic   # fit on the calibration slice only
+
+money:
+  currency_symbol: "Rs."
+  gbp_to_inr: 105.0        # documented FX assumption; see MODEL_CARD.md
+  gross_margin_pct: 0.28   # merchant gross margin on an order
+
+  # --- Cost of a MISSED return (false negative) -------------------------------
+  false_negative:
+    reverse_logistics_inr: 250.0   # reverse pickup + inspection, fixed per order
+    restocking_pct: 0.04           # damage/refurb loss as a % of order value
+    lost_margin: true              # the booked margin is reversed on refund
+
+  # --- Interventions. Each has its own FP cost, hence its own optimal threshold.
+  actions:
+    manual_pack_check:
+      label: "Manual pack check"
+      ops_cost_inr: 40.0            # warehouse labour, charged on every flagged order
+      conversion_loss_prob: 0.0     # invisible to the buyer -> no lost sales
+      effectiveness: 0.25           # fraction of true returns actually prevented
+    remove_discount:
+      label: "Withhold promo / deep discount"
+      ops_cost_inr: 5.0
+      conversion_loss_prob: 0.08    # some good buyers abandon the cart
+      effectiveness: 0.45
+    remove_cod:
+      label: "Require prepayment (block COD)"
+      ops_cost_inr: 5.0
+      conversion_loss_prob: 0.18    # highest friction on a good customer
+      effectiveness: 0.65
+  default_action: remove_discount
+
+# ---------------------------------------------------------------------------
+# Policy guardrails. The model RECOMMENDS; this layer DECIDES.
+# The buildathon brief asks that every money action be "explainable, bounded and
+# gated". A score alone is none of those things -- these rules are the bound and
+# the gate, and every one of them that fires is written into the audit ledger with
+# a reason a merchant can read.
+# ---------------------------------------------------------------------------
+policy:
+  enabled: true
+
+  # (1) Never spend more friction than the order can repay. Below this value the
+  #     ops cost of any intervention dominates the expected saving.
+  min_order_value_inr: 1500.0
+
+  # (2) Loyalty shield. A customer with a long clean history is not worth the
+  #     friction, whatever the score says -- the model is a 25%-precision signal.
+  loyalty_shield:
+    min_prior_orders: 5
+    max_prior_return_rate: 0.10
+
+  # (3) The model's weakest segment is new customers (1.48x lift, README 6.2), and
+  #     it is exactly the segment a COD block hurts most. Cap their action severity.
+  new_customer_max_action: manual_pack_check
+
+  # (4) Above this order value a human decides, not the model. Bounded autonomy.
+  human_review_above_inr: 200000.0
+
+  # (5) Portfolio cap: the share of orders that may carry an automatic action in a
+  #     rolling day. Stops a drift event from actioning the whole book.
+  max_daily_action_rate: 0.35
+
+  # (6) Always-approve holdout (README 9). A deterministic slice of flagged orders
+  #     is let through unactioned so the model keeps observing unbiased outcomes.
+  #     Making this real in the SERVING path is what stops the feedback loop.
+  holdout_frac: 0.05
+  holdout_salt: "return-risk-2026"
+
+# ---------------------------------------------------------------------------
+# The responder. An LLM writes the merchant-facing prose and the dispute evidence
+# narrative. It NEVER touches the decision -- every number it is allowed to say is
+# computed deterministically upstream and checked against its output afterwards.
+# With no API credentials the templates below are used and nothing degrades except
+# the fluency of the sentence.
+# ---------------------------------------------------------------------------
+responder:
+  enabled: true
+  model: claude-opus-5
+  effort: low
+  max_tokens: 1200
+  timeout_seconds: 30
+  # Reject a generated note that states a rupee figure we did not give it.
+  verify_numbers: true
+
+baselines:
+  # Real rules a merchant would plausibly write, not strawmen. Each fires on a
+  # meaningful share of orders; the second is the strongest simple heuristic we could
+  # find on this data and is the one the model actually has to beat.
+  action: remove_discount
+  rules:
+    - name: "Deep discount: flag orders >= 30% off the reference price"
+      feature: discount_pct
+      op: ">="
+      value: 0.30
+    - name: "Big ticket: flag orders worth GBP 500 or more"
+      feature: order_value_gbp
+      op: ">="
+      value: 500.0
+    - name: "Repeat returner: flag customers with >= 1 confirmed past return"
+      feature: prior_returns_observed
+      op: ">="
+      value: 1
+  # Which rule the README calls "the naive rule" in the headline comparison.
+  headline_rule: "Big ticket: flag orders worth GBP 500 or more"
+
+sensitivity:
+  # Grid over plausible FP/FN cost multipliers (Tier 1.4).
+  fn_multipliers: [0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
+  fp_multipliers: [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+
+capacity:
+  # Top-k / capacity-constrained operating mode (Tier 2.5).
+  k_percents: [0.01, 0.05, 0.10, 0.20]
+
+selective_labels:
+  # Always-approve holdout: this fraction of FLAGGED orders is let through
+  # unactioned so the model keeps observing unbiased outcomes.
+  holdout_frac: 0.05
+  action: remove_cod   # the most censoring action; worst case for the feedback loop
+
+stability:
+  freq: M    # monthly slices of the test period (pandas Period alias)
+
+paths:
+  reports_dir: reports
+  models_dir: models
+  model_file: models/return_risk_model.joblib
+  audit_dir: audit

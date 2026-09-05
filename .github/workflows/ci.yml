@@ -1,0 +1,62 @@
+name: CI
+
+# The suite runs on the synthetic dataset, so CI never needs the 45MB UCI download.
+# What it does verify is everything that could silently rot: the leakage guards, the
+# cost algebra and its monotonicity, and that the pipeline still writes every artifact.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Leakage tests
+        run: pytest tests/test_leakage.py -q
+
+      - name: Cost-layer tests
+        run: pytest tests/test_money.py tests/test_config_drives_behaviour.py -q
+
+      # The governance layer: every guardrail firing, the ledger's tamper evidence, and
+      # the assertion that the LLM cannot influence a decision. These run without any
+      # API credentials by design -- a suite that needs a key is a suite CI cannot run.
+      - name: Governance tests (policy + audit ledger + responder)
+        run: pytest tests/test_policy.py tests/test_audit.py tests/test_responder.py -q
+
+      # The bring-your-own-data front door: column detection on a foreign export, and
+      # the refusals that stop a mis-mapped file from training silently.
+      - name: Ingest tests (bring your own data)
+        run: pytest tests/test_ingest.py -q
+
+      - name: Full suite (incl. end-to-end smoke run)
+        run: pytest tests/ -q
+
+      - name: Pipeline smoke run on synthetic data
+        run: python run_demo.py --synthetic --quick
+
+      # End-to-end proof that an arbitrary merchant export runs the same 12 steps.
+      - name: End-to-end run on a foreign-format export
+        run: |
+          python scripts/make_sample_export.py
+          python run_demo.py --data-file data/sample/merchant_export_sample.csv --quick

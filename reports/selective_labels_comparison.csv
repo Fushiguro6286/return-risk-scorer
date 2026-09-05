@@ -1,0 +1,4 @@
+model,auc_pr_period2,roc_auc_period2,precision_period2,recall_period2,mean_score_period2,orders_flagged_period2,flag_rate_period2,savings_inr_period2,note
+original (no retrain),0.33814515152314123,0.6945982369074308,0.2524271844660194,0.7553516819571865,0.1647979673010086,1957,0.5210330138445154,4363178.994440002,"Reference: the deployed model, never exposed to censored data."
+retrained on censored labels,0.15016418943313714,0.44311108350733575,0.12173913043478261,0.021406727828746176,0.026408869380399977,115,0.030617678381256657,-55103.36703999899,Flagged orders re-enter training stamped 'not returned'.
+retrained w/ 5% always-approve holdout,0.254985293374652,0.6142328023549963,0.2421410365335599,0.43577981651376146,0.1393786166512713,1177,0.3133652822151225,2579838.1889200006,Censored rows dropped; holdout up-weighted by 1/p to restore the flagged population.

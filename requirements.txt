@@ -1,0 +1,31 @@
+# Pinned so a fresh clone reproduces the numbers in README.md exactly.
+# Python 3.11+ (developed and verified on 3.13).
+
+# --- core modelling ---
+numpy==2.3.5
+pandas==3.0.1
+scikit-learn==1.9.0
+scipy==1.18.1
+lightgbm==4.7.0
+joblib==1.5.3
+
+# --- explainability ---
+shap==0.52.0
+numba==0.67.0
+
+# --- charts ---
+matplotlib==3.10.8
+
+# --- data access ---
+openpyxl==3.1.5          # reads the Online Retail II workbook
+pyarrow==23.0.1          # Parquet cache for the parsed dataset
+PyYAML==6.0.3
+
+# --- serving ---
+fastapi==0.135.2
+uvicorn==0.42.0
+pydantic==2.12.5
+streamlit==1.62.0
+
+# --- tests ---
+pytest==9.0.2

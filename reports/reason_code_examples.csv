@@ -1,0 +1,11 @@
+order_id,risk_score,order_value_gbp,reasons
+547583,0.12994350282485878,562.3199999999999,High-return product family (15% historical return rate) | Unusually large order value | Long gap since last order (10 days)
+547623,0.19305019305019305,543.22,Unusually large order value | Deep discount (33% off the usual price for these items) | Product family 375
+547639,0.1506276150627615,154.95,Deep discount (24% off the usual price for these items) | Peak gifting season (returns spike after the holidays) | Product family 226
+547644,0.21962616822429906,418.18,Product family 224 | Unusually large order value | Bulk quantities of the same item
+547649,0.5402298850574713,368.92,Product family 207 | Customer has returned 30% of their previous orders | Unusually large order value
+547650,0.1506276150627615,459.3,Unusually large order value | Peak gifting season (returns spike after the holidays) | Contains a high-value item
+547651,0.29702970297029707,433.29,Product family 224 | Unusually large order value | Order size out of line with this customer's history
+547652,0.21962616822429906,236.07,Customer has returned 41% of their previous orders | Product family 214 | 51 confirmed past return(s) from this customer
+547653,0.21962616822429906,515.9,Deep discount (13% off the usual price for these items) | Unusually large order value | Thin purchase history (5 prior orders)
+547654,0.21962616822429906,73.77,Product family 228 | 17 confirmed past return(s) from this customer | Long gap since last order (9 days)

@@ -1,0 +1,1402 @@
+{
+  "config": {
+    "seed": 42,
+    "data": {
+      "source": "uci",
+      "file": {
+        "path": null,
+        "table": null,
+        "sheet": null,
+        "return_mode": "cancellation",
+        "assumed_return_lag_days": 21,
+        "currency_to_inr": 1.0,
+        "mapping": null
+      },
+      "raw_dir": "data/raw",
+      "sample_dir": "data/sample",
+      "uci_url": "https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip",
+      "drop_missing_customer": true,
+      "min_order_value_gbp": 1.0,
+      "max_order_value_gbp": 50000.0
+    },
+    "label": {
+      "lookahead_days": 90,
+      "require_same_customer": true,
+      "require_same_stockcode": true
+    },
+    "split": {
+      "train_frac": 0.6,
+      "calib_frac": 0.15,
+      "test_frac": 0.25,
+      "embargo_days": 90
+    },
+    "features": {
+      "target_encoding_folds": 5,
+      "target_encoding_smoothing": 50.0,
+      "discount_reference": "median",
+      "top_n_countries": 12
+    },
+    "model": {
+      "type": "lightgbm",
+      "params": {
+        "objective": "binary",
+        "n_estimators": 400,
+        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "min_child_samples": 100,
+        "subsample": 0.8,
+        "subsample_freq": 1,
+        "colsample_bytree": 0.8,
+        "reg_lambda": 5.0,
+        "max_depth": -1,
+        "verbose": -1
+      },
+      "calibration": "isotonic"
+    },
+    "money": {
+      "currency_symbol": "Rs.",
+      "gbp_to_inr": 105.0,
+      "gross_margin_pct": 0.28,
+      "false_negative": {
+        "reverse_logistics_inr": 250.0,
+        "restocking_pct": 0.04,
+        "lost_margin": true
+      },
+      "actions": {
+        "manual_pack_check": {
+          "label": "Manual pack check",
+          "ops_cost_inr": 40.0,
+          "conversion_loss_prob": 0.0,
+          "effectiveness": 0.25
+        },
+        "remove_discount": {
+          "label": "Withhold promo / deep discount",
+          "ops_cost_inr": 5.0,
+          "conversion_loss_prob": 0.08,
+          "effectiveness": 0.45
+        },
+        "remove_cod": {
+          "label": "Require prepayment (block COD)",
+          "ops_cost_inr": 5.0,
+          "conversion_loss_prob": 0.18,
+          "effectiveness": 0.65
+        }
+      },
+      "default_action": "remove_discount"
+    },
+    "policy": {
+      "enabled": true,
+      "min_order_value_inr": 1500.0,
+      "loyalty_shield": {
+        "min_prior_orders": 5,
+        "max_prior_return_rate": 0.1
+      },
+      "new_customer_max_action": "manual_pack_check",
+      "human_review_above_inr": 200000.0,
+      "max_daily_action_rate": 0.35,
+      "holdout_frac": 0.05,
+      "holdout_salt": "return-risk-2026"
+    },
+    "responder": {
+      "enabled": true,
+      "model": "claude-opus-5",
+      "effort": "low",
+      "max_tokens": 1200,
+      "timeout_seconds": 30,
+      "verify_numbers": true
+    },
+    "baselines": {
+      "action": "remove_discount",
+      "rules": [
+        {
+          "name": "Deep discount: flag orders >= 30% off the reference price",
+          "feature": "discount_pct",
+          "op": ">=",
+          "value": 0.3
+        },
+        {
+          "name": "Big ticket: flag orders worth GBP 500 or more",
+          "feature": "order_value_gbp",
+          "op": ">=",
+          "value": 500.0
+        },
+        {
+          "name": "Repeat returner: flag customers with >= 1 confirmed past return",
+          "feature": "prior_returns_observed",
+          "op": ">=",
+          "value": 1
+        }
+      ],
+      "headline_rule": "Big ticket: flag orders worth GBP 500 or more"
+    },
+    "sensitivity": {
+      "fn_multipliers": [
+        0.5,
+        0.75,
+        1.0,
+        1.5,
+        2.0,
+        3.0
+      ],
+      "fp_multipliers": [
+        0.25,
+        0.5,
+        1.0,
+        2.0,
+        4.0,
+        8.0
+      ]
+    },
+    "capacity": {
+      "k_percents": [
+        0.01,
+        0.05,
+        0.1,
+        0.2
+      ]
+    },
+    "selective_labels": {
+      "holdout_frac": 0.05,
+      "action": "remove_cod"
+    },
+    "stability": {
+      "freq": "M"
+    },
+    "paths": {
+      "reports_dir": "reports",
+      "models_dir": "models",
+      "model_file": "models/return_risk_model.joblib",
+      "audit_dir": "audit"
+    }
+  },
+  "label": {
+    "label_definition": "returned=1 if a later cancellation invoice from the same customer reverses at least one stock code of the order within 90 days",
+    "n_cancellation_lines": 17966,
+    "n_cancellation_lines_matched": 14753,
+    "cancellation_match_rate": 0.8212,
+    "n_orders_before_right_censor_drop": 36620,
+    "n_orders_analysed": 30047,
+    "n_orders_returned": 5569,
+    "base_rate": 0.185343,
+    "right_censor_cutoff": "2011-09-10 12:50:00",
+    "n_orders_dropped_by_value_filter": 6592,
+    "order_value_filter_gbp": [
+      1.0,
+      50000.0
+    ]
+  },
+  "data": {
+    "source": "uci",
+    "n_transaction_lines": 820645,
+    "n_orders": 30047,
+    "n_customers": 5265,
+    "date_min": "2009-12-01 07:45:00",
+    "date_max": "2011-12-09 12:50:00"
+  },
+  "split": {
+    "n_total": 30047,
+    "boundary_train_calib": "2010-11-01 13:41:00",
+    "deployment_moment": "2011-03-24 10:48:00",
+    "fitting_window_end": "2010-12-24 10:48:00",
+    "embargo_days": 90,
+    "n_embargoed": 2919,
+    "train": {
+      "n": 15694,
+      "start": "2009-12-01 07:45:00",
+      "end": "2010-11-01 13:41:00",
+      "base_rate": 0.19000892060660124
+    },
+    "calib": {
+      "n": 3923,
+      "start": "2010-11-01 13:44:00",
+      "end": "2010-12-23 16:06:00",
+      "base_rate": 0.17435635992862605
+    },
+    "test": {
+      "n": 7511,
+      "start": "2011-03-24 11:07:00",
+      "end": "2011-09-09 15:53:00",
+      "base_rate": 0.17574224470776195
+    }
+  },
+  "calibration": {
+    "brier_uncalibrated_calib_slice": 0.13216424734128857,
+    "brier_calibrated_calib_slice": 0.12876472320774435
+  },
+  "per_action_thresholds": {
+    "rows": [
+      {
+        "action": "manual_pack_check",
+        "action_label": "Manual pack check",
+        "ops_cost_inr": 40.0,
+        "conversion_loss_prob": 0.0,
+        "effectiveness": 0.25,
+        "fp_cost_mean_inr": 40.0,
+        "t_star": 0.056497,
+        "orders_flagged": 7403,
+        "flag_rate": 0.985621089069365,
+        "precision": 0.17803593137917062,
+        "recall": 0.9984848484848485,
+        "total_cost_inr": 21869620.480000004,
+        "savings_inr": 6894049.568,
+        "savings_pct": 0.23967906586660895
+      },
+      {
+        "action": "remove_discount",
+        "action_label": "Withhold promo / deep discount",
+        "ops_cost_inr": 5.0,
+        "conversion_loss_prob": 0.08,
+        "effectiveness": 0.45,
+        "fp_cost_mean_inr": 1066.1779246225537,
+        "t_star": 0.121855,
+        "orders_flagged": 4116,
+        "flag_rate": 0.5479962721342032,
+        "precision": 0.2524295432458698,
+        "recall": 0.7871212121212121,
+        "total_cost_inr": 21106568.795040004,
+        "savings_inr": 7657101.25296,
+        "savings_pct": 0.2662073803580018
+      },
+      {
+        "action": "remove_cod",
+        "action_label": "Require prepayment (block COD)",
+        "ops_cost_inr": 5.0,
+        "conversion_loss_prob": 0.18,
+        "effectiveness": 0.65,
+        "fp_cost_mean_inr": 2392.6503304007456,
+        "t_star": 0.197339,
+        "orders_flagged": 2764,
+        "flag_rate": 0.3679936093729197,
+        "precision": 0.2959479015918958,
+        "recall": 0.6196969696969697,
+        "total_cost_inr": 20268635.5,
+        "savings_inr": 8495034.548000004,
+        "savings_pct": 0.29533903475543033
+      }
+    ],
+    "monotone_cheaper_action_lower_threshold": true,
+    "default_action": "remove_discount",
+    "t_star": 0.121855
+  },
+  "metrics_test": {
+    "n": 7511,
+    "n_positive": 1320,
+    "base_rate": 0.17574224470776195,
+    "auc_pr": 0.340890430983395,
+    "auc_pr_lift_vs_base": 1.939718202360818,
+    "roc_auc": 0.7045587313940569,
+    "brier": 0.131805925165383,
+    "log_loss": 0.4383961300041016,
+    "threshold": 0.121855,
+    "precision": 0.2524295432458698,
+    "recall": 0.7871212121212121,
+    "f1": 0.38226637233259747,
+    "accuracy": 0.5529223805085874,
+    "n_flagged": 4116,
+    "flag_rate": 0.5479962721342032,
+    "ece": 0.0104385939820692
+  },
+  "metrics_test_uncalibrated": {
+    "n": 7511,
+    "n_positive": 1320,
+    "base_rate": 0.17574224470776195,
+    "auc_pr": 0.3650050920842609,
+    "auc_pr_lift_vs_base": 2.0769342777612754,
+    "roc_auc": 0.7076705922086314,
+    "brier": 0.132611802954977,
+    "log_loss": 0.42749148283834143,
+    "threshold": 0.121855,
+    "precision": 0.2630611709110003,
+    "recall": 0.759090909090909,
+    "f1": 0.3907194384870345,
+    "accuracy": 0.5839435494607909,
+    "n_flagged": 3809,
+    "flag_rate": 0.5071228864332312
+  },
+  "money": {
+    "action": "remove_discount",
+    "threshold": 0.121855,
+    "confusion_matrix_inr": {
+      "true_negative": 0.0,
+      "false_positive": 3819354.0270400005,
+      "false_negative": 3248891.648,
+      "true_positive": 14038323.120000003
+    },
+    "counts": {
+      "tn": 3114,
+      "fp": 3077,
+      "fn": 281,
+      "tp": 1039
+    },
+    "n": 7511,
+    "n_tp": 1039,
+    "n_fp": 3077,
+    "n_fn": 281,
+    "n_tn": 3114,
+    "cost_tp": 14038323.120000003,
+    "cost_fp": 3819354.0270400005,
+    "cost_fn": 3248891.648,
+    "cost_tn": 0.0,
+    "cost_tp_counterfactual": 25514778.4,
+    "total_cost": 21106568.795040004,
+    "do_nothing_cost": 28763670.048000004,
+    "savings": 7657101.25296,
+    "n_flagged": 4116,
+    "flag_rate": 0.5479962721342032,
+    "precision": 0.2524295432458698,
+    "recall": 0.7871212121212121
+  },
+  "baselines": {
+    "rows": [
+      {
+        "policy": "Do nothing (status quo)",
+        "orders_flagged": 0,
+        "flag_rate": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "total_cost_inr": 28763670.048000004,
+        "savings_vs_do_nothing_inr": 0.0,
+        "savings_pct": 0.0,
+        "model_saves_vs_this_inr": 7657101.25296
+      },
+      {
+        "policy": "Rule -- Deep discount: flag orders >= 30% off the reference price",
+        "orders_flagged": 523,
+        "flag_rate": 0.06963120756224205,
+        "precision": 0.19120458891013384,
+        "recall": 0.07575757575757576,
+        "total_cost_inr": 28715796.816800002,
+        "savings_vs_do_nothing_inr": 47873.231200002134,
+        "savings_pct": 0.001664364495911427,
+        "model_saves_vs_this_inr": 7609228.021759998
+      },
+      {
+        "policy": "Rule -- Big ticket: flag orders worth GBP 500 or more",
+        "orders_flagged": 1617,
+        "flag_rate": 0.21528424976700838,
+        "precision": 0.2597402597402597,
+        "recall": 0.3181818181818182,
+        "total_cost_inr": 23149022.553600002,
+        "savings_vs_do_nothing_inr": 5614647.494400002,
+        "savings_pct": 0.19519927342479024,
+        "model_saves_vs_this_inr": 2042453.7585599981
+      },
+      {
+        "policy": "Rule -- Repeat returner: flag customers with >= 1 confirmed past return",
+        "orders_flagged": 4626,
+        "flag_rate": 0.6158966848622021,
+        "precision": 0.21768266320795504,
+        "recall": 0.7628787878787879,
+        "total_cost_inr": 22574563.238400005,
+        "savings_vs_do_nothing_inr": 6189106.809599999,
+        "savings_pct": 0.21517097085565895,
+        "model_saves_vs_this_inr": 1467994.4433600008
+      },
+      {
+        "policy": "Flag every order",
+        "orders_flagged": 7511,
+        "flag_rate": 1.0,
+        "precision": 0.17574224470776195,
+        "recall": 1.0,
+        "total_cost_inr": 21837724.01488,
+        "savings_vs_do_nothing_inr": 6925946.033120003,
+        "savings_pct": 0.2407879808648263,
+        "model_saves_vs_this_inr": 731155.2198399976
+      },
+      {
+        "policy": "Model @ t*=0.122",
+        "orders_flagged": 4116,
+        "flag_rate": 0.5479962721342032,
+        "precision": 0.2524295432458698,
+        "recall": 0.7871212121212121,
+        "total_cost_inr": 21106568.795040004,
+        "savings_vs_do_nothing_inr": 7657101.25296,
+        "savings_pct": 0.2662073803580018,
+        "model_saves_vs_this_inr": 0.0
+      },
+      {
+        "policy": "Model, per-order value-aware rule",
+        "orders_flagged": 3848,
+        "flag_rate": 0.5123152709359606,
+        "precision": 0.26065488565488565,
+        "recall": 0.7598484848484849,
+        "total_cost_inr": 21184344.057760004,
+        "savings_vs_do_nothing_inr": 7579325.99024,
+        "savings_pct": 0.26350343949822236,
+        "model_saves_vs_this_inr": 77775.26272
+      }
+    ],
+    "rule_diagnostics": [
+      {
+        "rule": "Deep discount: flag orders >= 30% off the reference price",
+        "condition": "discount_pct >= 0.3",
+        "orders_flagged": 523,
+        "flag_rate": 0.06963120756224205,
+        "precision": 0.19120458891013384,
+        "lift_vs_base": 1.0879830812909206,
+        "recall": 0.07575757575757576,
+        "base_rate": 0.17574224470776195
+      },
+      {
+        "rule": "Big ticket: flag orders worth GBP 500 or more",
+        "condition": "order_value_gbp >= 500.0",
+        "orders_flagged": 1617,
+        "flag_rate": 0.21528424976700838,
+        "precision": 0.2597402597402597,
+        "lift_vs_base": 1.4779614325068868,
+        "recall": 0.3181818181818182,
+        "base_rate": 0.17574224470776195
+      },
+      {
+        "rule": "Repeat returner: flag customers with >= 1 confirmed past return",
+        "condition": "prior_returns_observed >= 1",
+        "orders_flagged": 4626,
+        "flag_rate": 0.6158966848622021,
+        "precision": 0.21768266320795504,
+        "lift_vs_base": 1.2386473358749623,
+        "recall": 0.7628787878787879,
+        "base_rate": 0.17574224470776195
+      }
+    ],
+    "headline": {
+      "model_total_cost_inr": 21106568.795040004,
+      "do_nothing_cost_inr": 28763670.048000004,
+      "savings_vs_do_nothing_inr": 7657101.25296,
+      "savings_vs_do_nothing_pct": 0.2662073803580018,
+      "headline_rule": "Big ticket: flag orders worth GBP 500 or more",
+      "headline_rule_cost_inr": 23149022.553600002,
+      "savings_vs_headline_rule_inr": 2042453.7585599981,
+      "best_rule": "Rule -- Repeat returner: flag customers with >= 1 confirmed past return",
+      "best_rule_cost_inr": 22574563.238400005,
+      "savings_vs_best_rule_inr": 1467994.4433600008,
+      "model_beats_all_rules": true,
+      "model_beats_do_nothing": true
+    }
+  },
+  "sensitivity": {
+    "n_cells": 36,
+    "n_cells_profitable": 36,
+    "pct_cells_profitable": 1.0,
+    "t_star_min": 0.056497,
+    "t_star_max": 0.630435,
+    "t_star_median": 0.159597,
+    "savings_pct_min": 0.009303802565994407,
+    "savings_pct_max": 0.43268054974410414,
+    "worst_cell": {
+      "fn_multiplier": 0.5,
+      "fp_multiplier": 8.0
+    }
+  },
+  "stability": {
+    "monthly": [
+      {
+        "period": "2011-03",
+        "n_orders": 365,
+        "n_returns": 59,
+        "base_rate": 0.16164383561643836,
+        "auc_pr": 0.30859788281590256,
+        "roc_auc": 0.7398360474133157,
+        "precision": 0.22510822510822512,
+        "recall": 0.8813559322033898,
+        "brier": 0.12477511863047193,
+        "orders_flagged": 231,
+        "flag_rate": 0.6328767123287671,
+        "savings_inr": 116527.16015999997,
+        "savings_pct": 0.11831988051669198
+      },
+      {
+        "period": "2011-04",
+        "n_orders": 1139,
+        "n_returns": 184,
+        "base_rate": 0.16154521510096576,
+        "auc_pr": 0.3048734201373908,
+        "roc_auc": 0.6920612337810153,
+        "precision": 0.21937321937321938,
+        "recall": 0.8369565217391305,
+        "brier": 0.12619668045626192,
+        "orders_flagged": 702,
+        "flag_rate": 0.6163301141352063,
+        "savings_inr": 646787.5046399999,
+        "savings_pct": 0.22078404323324002
+      },
+      {
+        "period": "2011-05",
+        "n_orders": 1544,
+        "n_returns": 284,
+        "base_rate": 0.18393782383419688,
+        "auc_pr": 0.38049618748400166,
+        "roc_auc": 0.7257643080706462,
+        "precision": 0.2702702702702703,
+        "recall": 0.8098591549295775,
+        "brier": 0.13317759369488133,
+        "orders_flagged": 851,
+        "flag_rate": 0.5511658031088082,
+        "savings_inr": 1499039.5755199995,
+        "savings_pct": 0.27118007264988264
+      },
+      {
+        "period": "2011-06",
+        "n_orders": 1390,
+        "n_returns": 258,
+        "base_rate": 0.1856115107913669,
+        "auc_pr": 0.3482137612268983,
+        "roc_auc": 0.6937796176075821,
+        "precision": 0.2608695652173913,
+        "recall": 0.7674418604651163,
+        "brier": 0.13856403731327535,
+        "orders_flagged": 759,
+        "flag_rate": 0.5460431654676259,
+        "savings_inr": 1843233.6383999996,
+        "savings_pct": 0.2911414594597389
+      },
+      {
+        "period": "2011-07",
+        "n_orders": 1321,
+        "n_returns": 231,
+        "base_rate": 0.17486752460257382,
+        "auc_pr": 0.3604065188281586,
+        "roc_auc": 0.717770761348743,
+        "precision": 0.2727272727272727,
+        "recall": 0.7792207792207793,
+        "brier": 0.12906593053897608,
+        "orders_flagged": 660,
+        "flag_rate": 0.4996214988644966,
+        "savings_inr": 1200362.54304,
+        "savings_pct": 0.24935797479814106
+      },
+      {
+        "period": "2011-08",
+        "n_orders": 1267,
+        "n_returns": 227,
+        "base_rate": 0.17916337805840568,
+        "auc_pr": 0.33990594824008663,
+        "roc_auc": 0.6916384276516435,
+        "precision": 0.25609756097560976,
+        "recall": 0.7400881057268722,
+        "brier": 0.1355377886975167,
+        "orders_flagged": 656,
+        "flag_rate": 0.5177584846093133,
+        "savings_inr": 1969472.8217599997,
+        "savings_pct": 0.2969602287255763
+      },
+      {
+        "period": "2011-09",
+        "n_orders": 485,
+        "n_returns": 77,
+        "base_rate": 0.15876288659793814,
+        "auc_pr": 0.3033126974146397,
+        "roc_auc": 0.6793035395976572,
+        "precision": 0.22178988326848248,
+        "recall": 0.7402597402597403,
+        "brier": 0.1242488196397873,
+        "orders_flagged": 257,
+        "flag_rate": 0.5298969072164949,
+        "savings_inr": 381678.00943999994,
+        "savings_pct": 0.24712083908440888
+      }
+    ],
+    "auc_pr_trend": {
+      "slope_per_month": 0.0012185654052057136,
+      "first": 0.30859788281590256,
+      "last": 0.3033126974146397,
+      "min": 0.3033126974146397,
+      "max": 0.38049618748400166,
+      "mean": 0.33511520230672553,
+      "std": 0.02808848502906926,
+      "relative_change": -0.017126447378823455
+    },
+    "savings_trend": {
+      "slope_per_month": 112219.50534285718,
+      "first": 116527.16015999997,
+      "last": 381678.00943999994,
+      "min": 116527.16015999997,
+      "max": 1969472.8217599997,
+      "mean": 1093871.607565714,
+      "std": 672524.9253292622,
+      "relative_change": 2.2754424712309924
+    },
+    "verdict": "Across 7 monthly test slices AUC-PR improves by 0.0012/month (first 0.309, last 0.303, range 0.303-0.380, sd 0.028)."
+  },
+  "segments": {
+    "rows": [
+      {
+        "dimension": "basket_size",
+        "segment": "6-15",
+        "n_orders": 2259,
+        "n_returns": 359,
+        "base_rate": 0.15891987605135016,
+        "auc_pr": 0.3006079661625679,
+        "auc_pr_lift": 1.8915693469672448,
+        "roc_auc": 0.6689114499340272,
+        "precision": 0.21480289621882542,
+        "recall": 0.7437325905292479,
+        "brier": 0.12438007138446117,
+        "flag_rate": 0.5502434705621957,
+        "savings_inr": 1125823.7583999988,
+        "reliable": true
+      },
+      {
+        "dimension": "basket_size",
+        "segment": "16-30",
+        "n_orders": 2170,
+        "n_returns": 460,
+        "base_rate": 0.2119815668202765,
+        "auc_pr": 0.36081099423205515,
+        "auc_pr_lift": 1.7020866467033906,
+        "roc_auc": 0.6811594202898551,
+        "precision": 0.26522593320235754,
+        "recall": 0.8804347826086957,
+        "brier": 0.15381204927195047,
+        "flag_rate": 0.7036866359447005,
+        "savings_inr": 2326634.568479999,
+        "reliable": true
+      },
+      {
+        "dimension": "basket_size",
+        "segment": "1-5",
+        "n_orders": 1706,
+        "n_returns": 149,
+        "base_rate": 0.0873388042203986,
+        "auc_pr": 0.13949743073608625,
+        "auc_pr_lift": 1.5971987707098199,
+        "roc_auc": 0.6230791446293636,
+        "precision": 0.16230366492146597,
+        "recall": 0.4161073825503356,
+        "brier": 0.08088579656993868,
+        "flag_rate": 0.223915592028136,
+        "savings_inr": 677178.9174400005,
+        "reliable": true
+      },
+      {
+        "dimension": "basket_size",
+        "segment": "30+",
+        "n_orders": 1376,
+        "n_returns": 352,
+        "base_rate": 0.2558139534883721,
+        "auc_pr": 0.44107631098571914,
+        "auc_pr_lift": 1.7242073974896293,
+        "roc_auc": 0.7054901123046875,
+        "precision": 0.3163900414937759,
+        "recall": 0.8664772727272727,
+        "brier": 0.1724247142378243,
+        "flag_rate": 0.7005813953488372,
+        "savings_inr": 3527464.008639998,
+        "reliable": true
+      },
+      {
+        "dimension": "category",
+        "segment": "OTHER",
+        "n_orders": 1618,
+        "n_returns": 285,
+        "base_rate": 0.1761433868974042,
+        "auc_pr": 0.3555615288982624,
+        "auc_pr_lift": 2.018591416692592,
+        "roc_auc": 0.7161171871915348,
+        "precision": 0.2776315789473684,
+        "recall": 0.7403508771929824,
+        "brier": 0.1312965613555044,
+        "flag_rate": 0.46971569839307786,
+        "savings_inr": 1665367.7905599996,
+        "reliable": true
+      },
+      {
+        "dimension": "category",
+        "segment": "224",
+        "n_orders": 660,
+        "n_returns": 132,
+        "base_rate": 0.2,
+        "auc_pr": 0.3674730663844885,
+        "auc_pr_lift": 1.8373653319224426,
+        "roc_auc": 0.7035697887970616,
+        "precision": 0.2520833333333333,
+        "recall": 0.9166666666666666,
+        "brier": 0.14548133379525818,
+        "flag_rate": 0.7272727272727273,
+        "savings_inr": 746215.9103999997,
+        "reliable": true
+      },
+      {
+        "dimension": "category",
+        "segment": "226",
+        "n_orders": 382,
+        "n_returns": 61,
+        "base_rate": 0.15968586387434555,
+        "auc_pr": 0.29067382579980167,
+        "auc_pr_lift": 1.8202852697626923,
+        "roc_auc": 0.692252693938001,
+        "precision": 0.21585903083700442,
+        "recall": 0.8032786885245902,
+        "brier": 0.1260995854794013,
+        "flag_rate": 0.5942408376963351,
+        "savings_inr": 242866.02943999995,
+        "reliable": true
+      },
+      {
+        "dimension": "category",
+        "segment": "227",
+        "n_orders": 351,
+        "n_returns": 69,
+        "base_rate": 0.19658119658119658,
+        "auc_pr": 0.35750088389997625,
+        "auc_pr_lift": 1.818591452882488,
+        "roc_auc": 0.7055709733785589,
+        "precision": 0.2765957446808511,
+        "recall": 0.7536231884057971,
+        "brier": 0.14560712844002757,
+        "flag_rate": 0.5356125356125356,
+        "savings_inr": 171731.26832000026,
+        "reliable": true
+      },
+      {
+        "dimension": "category",
+        "segment": "221",
+        "n_orders": 307,
+        "n_returns": 63,
+        "base_rate": 0.20521172638436483,
+        "auc_pr": 0.31611095814758144,
+        "auc_pr_lift": 1.5404137166874206,
+        "roc_auc": 0.6562581316679676,
+        "precision": 0.24630541871921183,
+        "recall": 0.7936507936507936,
+        "brier": 0.1569467136443346,
+        "flag_rate": 0.6612377850162866,
+        "savings_inr": 132258.00271999987,
+        "reliable": true
+      },
+      {
+        "dimension": "category",
+        "segment": "475",
+        "n_orders": 295,
+        "n_returns": 61,
+        "base_rate": 0.20677966101694914,
+        "auc_pr": 0.4786847316394085,
+        "auc_pr_lift": 2.31495075137091,
+        "roc_auc": 0.7858343841950398,
+        "precision": 0.3,
+        "recall": 0.8852459016393442,
+        "brier": 0.13911575213976385,
+        "flag_rate": 0.6101694915254238,
+        "savings_inr": 601937.0299199999,
+        "reliable": true
+      },
+      {
+        "dimension": "customer_type",
+        "segment": "returning",
+        "n_orders": 6910,
+        "n_returns": 1231,
+        "base_rate": 0.17814761215629524,
+        "auc_pr": 0.349744041193207,
+        "auc_pr_lift": 1.96322609638104,
+        "roc_auc": 0.7090271868266644,
+        "precision": 0.2584089695675387,
+        "recall": 0.7863525588952072,
+        "brier": 0.13252160051546694,
+        "flag_rate": 0.5421128798842257,
+        "savings_inr": 7315136.73584,
+        "reliable": true
+      },
+      {
+        "dimension": "customer_type",
+        "segment": "new",
+        "n_orders": 601,
+        "n_returns": 89,
+        "base_rate": 0.1480865224625624,
+        "auc_pr": 0.21920037661146796,
+        "auc_pr_lift": 1.4802182735223848,
+        "roc_auc": 0.6412614115168539,
+        "precision": 0.1918918918918919,
+        "recall": 0.797752808988764,
+        "brier": 0.12357744485077433,
+        "flag_rate": 0.6156405990016639,
+        "savings_inr": 341964.51712,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "300-500",
+        "n_orders": 2205,
+        "n_returns": 487,
+        "base_rate": 0.22086167800453516,
+        "auc_pr": 0.34953459151262123,
+        "auc_pr_lift": 1.5825950190663856,
+        "roc_auc": 0.6505576896874021,
+        "precision": 0.2552147239263804,
+        "recall": 0.8542094455852156,
+        "brier": 0.16190368875379188,
+        "flag_rate": 0.7392290249433107,
+        "savings_inr": 1332362.2273600008,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "<150",
+        "n_orders": 1853,
+        "n_returns": 146,
+        "base_rate": 0.07879114948731786,
+        "auc_pr": 0.1236677999808205,
+        "auc_pr_lift": 1.5695646120853453,
+        "roc_auc": 0.5924075723652005,
+        "precision": 0.1544943820224719,
+        "recall": 0.3767123287671233,
+        "brier": 0.07171374694631777,
+        "flag_rate": 0.1921208850512682,
+        "savings_inr": 21379.810880000005,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "150-300",
+        "n_orders": 1838,
+        "n_returns": 267,
+        "base_rate": 0.14526659412404788,
+        "auc_pr": 0.22485239870653562,
+        "auc_pr_lift": 1.5478603326689604,
+        "roc_auc": 0.6533220330093431,
+        "precision": 0.20149253731343283,
+        "recall": 0.7078651685393258,
+        "brier": 0.12045729958337832,
+        "flag_rate": 0.5103373231773667,
+        "savings_inr": 300017.77567999996,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "500-1k",
+        "n_orders": 1143,
+        "n_returns": 279,
+        "base_rate": 0.2440944881889764,
+        "auc_pr": 0.38468090893336926,
+        "auc_pr_lift": 1.5759508204689643,
+        "roc_auc": 0.6857141079251294,
+        "precision": 0.29916567342073896,
+        "recall": 0.899641577060932,
+        "brier": 0.17192930796904118,
+        "flag_rate": 0.7340332458442694,
+        "savings_inr": 1710651.2537599998,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "1k+",
+        "n_orders": 472,
+        "n_returns": 141,
+        "base_rate": 0.298728813559322,
+        "auc_pr": 0.5622034299641745,
+        "auc_pr_lift": 1.8819859499509957,
+        "roc_auc": 0.74740202695464,
+        "precision": 0.3626062322946176,
+        "recall": 0.9078014184397163,
+        "brier": 0.17414275737434445,
+        "flag_rate": 0.7478813559322034,
+        "savings_inr": 4292690.185279999,
+        "reliable": true
+      },
+      {
+        "dimension": "region",
+        "segment": "UK",
+        "n_orders": 6777,
+        "n_returns": 1188,
+        "base_rate": 0.1752988047808765,
+        "auc_pr": 0.3422214083325516,
+        "auc_pr_lift": 1.952217579351601,
+        "roc_auc": 0.7073169519492655,
+        "precision": 0.2573262629081775,
+        "recall": 0.7760942760942761,
+        "brier": 0.1314659334920617,
+        "flag_rate": 0.5287000147557916,
+        "savings_inr": 6621913.655200001,
+        "reliable": true
+      },
+      {
+        "dimension": "region",
+        "segment": "EU",
+        "n_orders": 696,
+        "n_returns": 127,
+        "base_rate": 0.1824712643678161,
+        "auc_pr": 0.36409742686203733,
+        "auc_pr_lift": 1.9953685755588817,
+        "roc_auc": 0.6957364072900377,
+        "precision": 0.22266401590457258,
+        "recall": 0.8818897637795275,
+        "brier": 0.1357034785437033,
+        "flag_rate": 0.7227011494252874,
+        "savings_inr": 963544.925600002,
+        "reliable": true
+      },
+      {
+        "dimension": "region",
+        "segment": "ROW",
+        "n_orders": 38,
+        "n_returns": 5,
+        "base_rate": 0.13157894736842105,
+        "auc_pr": 0.2309090909090909,
+        "auc_pr_lift": 1.754909090909091,
+        "roc_auc": 0.6575757575757576,
+        "precision": 0.16666666666666666,
+        "recall": 1.0,
+        "brier": 0.12105398881769273,
+        "flag_rate": 0.7894736842105263,
+        "savings_inr": 71642.67216000005,
+        "reliable": false
+      }
+    ],
+    "weakest": "Weakest reliable segment: customer_type=new (n=601, base rate 14.81%, AUC-PR 0.219 = 1.48x base, precision 0.192 vs portfolio-wide behaviour)."
+  },
+  "fairness": {
+    "rows": [
+      {
+        "dimension": "region",
+        "segment": "UK",
+        "n_orders": 6777,
+        "base_rate": 0.1752988047808765,
+        "flag_rate": 0.5287000147557916,
+        "flag_rate_vs_overall": 0.9647876119608239,
+        "over_flagging_ratio": 3.015993265993266,
+        "precision": 0.2573262629081775,
+        "recall": 0.7760942760942761,
+        "false_positive_rate": 0.47611379495437467,
+        "reliable": true
+      },
+      {
+        "dimension": "region",
+        "segment": "EU",
+        "n_orders": 696,
+        "base_rate": 0.1824712643678161,
+        "flag_rate": 0.7227011494252874,
+        "flag_rate_vs_overall": 1.3188066893424035,
+        "over_flagging_ratio": 3.9606299212598426,
+        "precision": 0.22266401590457258,
+        "recall": 0.8818897637795275,
+        "false_positive_rate": 0.687170474516696,
+        "reliable": true
+      },
+      {
+        "dimension": "region",
+        "segment": "ROW",
+        "n_orders": 38,
+        "base_rate": 0.13157894736842105,
+        "flag_rate": 0.7894736842105263,
+        "flag_rate_vs_overall": 1.4406552094522018,
+        "over_flagging_ratio": 6.0,
+        "precision": 0.16666666666666666,
+        "recall": 1.0,
+        "false_positive_rate": 0.7575757575757576,
+        "reliable": false
+      },
+      {
+        "dimension": "customer_type",
+        "segment": "returning",
+        "n_orders": 6910,
+        "base_rate": 0.17814761215629524,
+        "flag_rate": 0.5421128798842257,
+        "flag_rate_vs_overall": 0.9892638097207044,
+        "over_flagging_ratio": 3.043054427294882,
+        "precision": 0.2584089695675387,
+        "recall": 0.7863525588952072,
+        "false_positive_rate": 0.4891706286318014,
+        "reliable": true
+      },
+      {
+        "dimension": "customer_type",
+        "segment": "new",
+        "n_orders": 601,
+        "base_rate": 0.1480865224625624,
+        "flag_rate": 0.6156405990016639,
+        "flag_rate_vs_overall": 1.1234393923958934,
+        "over_flagging_ratio": 4.157303370786517,
+        "precision": 0.1918918918918919,
+        "recall": 0.797752808988764,
+        "false_positive_rate": 0.583984375,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "500-1k",
+        "n_orders": 1143,
+        "base_rate": 0.2440944881889764,
+        "flag_rate": 0.7340332458442694,
+        "flag_rate_vs_overall": 1.3394858380797636,
+        "over_flagging_ratio": 3.007168458781362,
+        "precision": 0.29916567342073896,
+        "recall": 0.899641577060932,
+        "false_positive_rate": 0.6805555555555556,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "150-300",
+        "n_orders": 1838,
+        "base_rate": 0.14526659412404788,
+        "flag_rate": 0.5103373231773667,
+        "flag_rate_vs_overall": 0.9312788227369293,
+        "over_flagging_ratio": 3.5131086142322094,
+        "precision": 0.20149253731343283,
+        "recall": 0.7078651685393258,
+        "false_positive_rate": 0.4767663908338638,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "300-500",
+        "n_orders": 2205,
+        "base_rate": 0.22086167800453516,
+        "flag_rate": 0.7392290249433107,
+        "flag_rate_vs_overall": 1.3489672512996127,
+        "over_flagging_ratio": 3.347022587268994,
+        "precision": 0.2552147239263804,
+        "recall": 0.8542094455852156,
+        "false_positive_rate": 0.7066356228172294,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "<150",
+        "n_orders": 1853,
+        "base_rate": 0.07879114948731786,
+        "flag_rate": 0.1921208850512682,
+        "flag_rate_vs_overall": 0.35058794159865775,
+        "over_flagging_ratio": 2.4383561643835616,
+        "precision": 0.1544943820224719,
+        "recall": 0.3767123287671233,
+        "false_positive_rate": 0.1763327475102519,
+        "reliable": true
+      },
+      {
+        "dimension": "order_value",
+        "segment": "1k+",
+        "n_orders": 472,
+        "base_rate": 0.298728813559322,
+        "flag_rate": 0.7478813559322034,
+        "flag_rate_vs_overall": 1.36475628386948,
+        "over_flagging_ratio": 2.5035460992907805,
+        "precision": 0.3626062322946176,
+        "recall": 0.9078014184397163,
+        "false_positive_rate": 0.6797583081570997,
+        "reliable": true
+      }
+    ],
+    "disparity": {
+      "customer_type": {
+        "best_segment": "returning",
+        "best_precision": 0.2584089695675387,
+        "worst_segment": "new",
+        "worst_precision": 0.1918918918918919,
+        "precision_gap": 0.06651707767564682,
+        "worst_flag_rate": 0.6156405990016639,
+        "worst_base_rate": 0.1480865224625624
+      },
+      "order_value": {
+        "best_segment": "1k+",
+        "best_precision": 0.3626062322946176,
+        "worst_segment": "<150",
+        "worst_precision": 0.1544943820224719,
+        "precision_gap": 0.20811185027214568,
+        "worst_flag_rate": 0.1921208850512682,
+        "worst_base_rate": 0.07879114948731786
+      },
+      "region": {
+        "best_segment": "UK",
+        "best_precision": 0.2573262629081775,
+        "worst_segment": "EU",
+        "worst_precision": 0.22266401590457258,
+        "precision_gap": 0.03466224700360493,
+        "worst_flag_rate": 0.7227011494252874,
+        "worst_base_rate": 0.1824712643678161
+      }
+    },
+    "verdict": "Largest precision disparity is on order_value: <150 is flagged at 19.2% but converts to only 15.4% precision, versus 36.3% for 1k+ -- a 20.8% gap, meaning <150 customers absorb more friction per prevented return."
+  },
+  "capacity": {
+    "rows": [
+      {
+        "k_pct": 0.01,
+        "orders_reviewed": 75,
+        "score_cutoff": 0.6304347826086957,
+        "returns_caught": 50,
+        "precision_at_k": 0.6666666666666666,
+        "recall_at_k": 0.03787878787878788,
+        "lift_vs_base": 3.793434343434343,
+        "value_at_risk_inr": 7528604.999999999,
+        "savings_inr": 602413.400000006,
+        "savings_per_review_inr": 8032.178666666746
+      },
+      {
+        "k_pct": 0.05,
+        "orders_reviewed": 376,
+        "score_cutoff": 0.3508771929824562,
+        "returns_caught": 190,
+        "precision_at_k": 0.5053191489361702,
+        "recall_at_k": 0.14393939393939395,
+        "lift_vs_base": 2.875342520954223,
+        "value_at_risk_inr": 21652521.45,
+        "savings_inr": 1729036.7160000019,
+        "savings_per_review_inr": 4598.501904255324
+      },
+      {
+        "k_pct": 0.1,
+        "orders_reviewed": 751,
+        "score_cutoff": 0.3149171270718232,
+        "returns_caught": 322,
+        "precision_at_k": 0.42876165113182424,
+        "recall_at_k": 0.24393939393939393,
+        "lift_vs_base": 2.439718758826615,
+        "value_at_risk_inr": 33456478.65,
+        "savings_inr": 2666603.2919999994,
+        "savings_per_review_inr": 3550.7367403462044
+      },
+      {
+        "k_pct": 0.2,
+        "orders_reviewed": 1502,
+        "score_cutoff": 0.21962616822429906,
+        "returns_caught": 513,
+        "precision_at_k": 0.3415446071904128,
+        "recall_at_k": 0.3886363636363636,
+        "lift_vs_base": 1.9434405640963563,
+        "value_at_risk_inr": 49043193.150000006,
+        "savings_inr": 3895437.9520000033,
+        "savings_per_review_inr": 2593.5006338215735
+      }
+    ],
+    "recommendation": "At t* the policy flags 54.8% of orders, which is the right mode when the action is cheap to scale (withholding a promo costs no labour). A merchant with a fixed review desk should instead run top-k: reviewing the riskiest 1% of orders yields precision@k 66.7% (3.79x base rate) and the best return per unit of human effort in this table."
+  },
+  "selective_labels": {
+    "action": "remove_cod",
+    "threshold": 0.121855,
+    "holdout_frac": 0.05,
+    "period1": {
+      "start": "2011-03-24 11:07:00",
+      "end": "2011-06-15 14:47:00",
+      "n": 3755
+    },
+    "period2": {
+      "start": "2011-06-15 14:48:00",
+      "end": "2011-09-09 15:53:00",
+      "n": 3756
+    },
+    "n_flagged_period1": 2159,
+    "n_labels_censored": 2048,
+    "n_always_approve_holdout": 111,
+    "true_base_rate_period1": 0.1773635153129161,
+    "observed_base_rate_naive_retrain": 0.03941411451398136,
+    "observed_base_rate_with_holdout": 0.17208046928419765,
+    "base_rate_understatement_naive": 0.13794940079893475,
+    "holdout_cost_inr": 355259.7672000001,
+    "comparison": [
+      {
+        "model": "original (no retrain)",
+        "auc_pr_period2": 0.33814515152314123,
+        "roc_auc_period2": 0.6945982369074308,
+        "precision_period2": 0.2524271844660194,
+        "recall_period2": 0.7553516819571865,
+        "mean_score_period2": 0.1647979673010086,
+        "orders_flagged_period2": 1957,
+        "flag_rate_period2": 0.5210330138445154,
+        "savings_inr_period2": 4363178.994440002,
+        "note": "Reference: the deployed model, never exposed to censored data."
+      },
+      {
+        "model": "retrained on censored labels",
+        "auc_pr_period2": 0.15016418943313714,
+        "roc_auc_period2": 0.44311108350733575,
+        "precision_period2": 0.12173913043478261,
+        "recall_period2": 0.021406727828746176,
+        "mean_score_period2": 0.026408869380399977,
+        "orders_flagged_period2": 115,
+        "flag_rate_period2": 0.030617678381256657,
+        "savings_inr_period2": -55103.36703999899,
+        "note": "Flagged orders re-enter training stamped 'not returned'."
+      },
+      {
+        "model": "retrained w/ 5% always-approve holdout",
+        "auc_pr_period2": 0.254985293374652,
+        "roc_auc_period2": 0.6142328023549963,
+        "precision_period2": 0.2421410365335599,
+        "recall_period2": 0.43577981651376146,
+        "mean_score_period2": 0.1393786166512713,
+        "orders_flagged_period2": 1177,
+        "flag_rate_period2": 0.3133652822151225,
+        "savings_inr_period2": 2579838.1889200006,
+        "note": "Censored rows dropped; holdout up-weighted by 1/p to restore the flagged population."
+      }
+    ],
+    "holdout_cost_explanation": "Expected rupee value of returns the always-approve holdout knowingly lets through: the price of keeping an unbiased label stream.",
+    "verdict": "Acting on 2,159 of 3,755 period-1 orders censors 2,048 labels. The observed base rate collapses from 17.74% to 3.94%, and a model retrained on that data scores AUC-PR 0.150 on clean period-2 data versus 0.338 for the incumbent. With a 5% always-approve holdout and inverse-propensity weighting the reconstructed base rate is 17.21% and the retrained model recovers to 0.255."
+  },
+  "leakage_audit": {
+    "top_feature": "order_value_gbp",
+    "top_feature_share_of_shap": 0.13048063729261838,
+    "top_5_features": [
+      "order_value_gbp",
+      "top_category",
+      "prior_return_rate",
+      "category_return_rate",
+      "max_unit_price"
+    ],
+    "top_5_gain_features": [
+      "top_category",
+      "order_value_gbp",
+      "prior_return_rate",
+      "prior_avg_order_value",
+      "avg_qty_per_line"
+    ],
+    "auc_pr": 0.340890430983395,
+    "auc_pr_lift_vs_base": 1.939718202360818,
+    "flags": [],
+    "passed": true,
+    "verdict": "No leakage indicators. Top drivers are order_value_gbp, top_category, prior_return_rate, all of which are known at checkout."
+  },
+  "reason_code_examples": [
+    {
+      "order_id": "547583",
+      "risk_score": 0.12994350282485878,
+      "order_value_gbp": 562.3199999999999,
+      "reasons": [
+        "High-return product family (15% historical return rate)",
+        "Unusually large order value",
+        "Long gap since last order (10 days)"
+      ]
+    },
+    {
+      "order_id": "547623",
+      "risk_score": 0.19305019305019305,
+      "order_value_gbp": 543.22,
+      "reasons": [
+        "Unusually large order value",
+        "Deep discount (33% off the usual price for these items)",
+        "Product family 375"
+      ]
+    },
+    {
+      "order_id": "547639",
+      "risk_score": 0.1506276150627615,
+      "order_value_gbp": 154.95,
+      "reasons": [
+        "Deep discount (24% off the usual price for these items)",
+        "Peak gifting season (returns spike after the holidays)",
+        "Product family 226"
+      ]
+    },
+    {
+      "order_id": "547644",
+      "risk_score": 0.21962616822429906,
+      "order_value_gbp": 418.18,
+      "reasons": [
+        "Product family 224",
+        "Unusually large order value",
+        "Bulk quantities of the same item"
+      ]
+    },
+    {
+      "order_id": "547649",
+      "risk_score": 0.5402298850574713,
+      "order_value_gbp": 368.92,
+      "reasons": [
+        "Product family 207",
+        "Customer has returned 30% of their previous orders",
+        "Unusually large order value"
+      ]
+    },
+    {
+      "order_id": "547650",
+      "risk_score": 0.1506276150627615,
+      "order_value_gbp": 459.3,
+      "reasons": [
+        "Unusually large order value",
+        "Peak gifting season (returns spike after the holidays)",
+        "Contains a high-value item"
+      ]
+    },
+    {
+      "order_id": "547651",
+      "risk_score": 0.29702970297029707,
+      "order_value_gbp": 433.29,
+      "reasons": [
+        "Product family 224",
+        "Unusually large order value",
+        "Order size out of line with this customer's history"
+      ]
+    },
+    {
+      "order_id": "547652",
+      "risk_score": 0.21962616822429906,
+      "order_value_gbp": 236.07,
+      "reasons": [
+        "Customer has returned 41% of their previous orders",
+        "Product family 214",
+        "51 confirmed past return(s) from this customer"
+      ]
+    },
+    {
+      "order_id": "547653",
+      "risk_score": 0.21962616822429906,
+      "order_value_gbp": 515.9,
+      "reasons": [
+        "Deep discount (13% off the usual price for these items)",
+        "Unusually large order value",
+        "Thin purchase history (5 prior orders)"
+      ]
+    },
+    {
+      "order_id": "547654",
+      "risk_score": 0.21962616822429906,
+      "order_value_gbp": 73.77,
+      "reasons": [
+        "Product family 228",
+        "17 confirmed past return(s) from this customer",
+        "Long gap since last order (9 days)"
+      ]
+    }
+  ],
+  "serving": {
+    "model_file": "C:\\Users\\piyus\\Downloads\\Return-Risk Score\\models\\return_risk_model.joblib",
+    "profile_store": "C:\\Users\\piyus\\Downloads\\Return-Risk Score\\models\\customer_profiles.parquet",
+    "n_customer_profiles": 5265,
+    "thresholds": {
+      "manual_pack_check": 0.056497,
+      "remove_discount": 0.121855,
+      "remove_cod": 0.197339
+    }
+  },
+  "runtime_seconds": 34.1,
+  "artifacts": [
+    "reports\\per_action_thresholds.csv",
+    "reports\\pr_curve.csv",
+    "reports\\roc_curve.csv",
+    "reports\\calibration_curve.csv",
+    "reports\\lift_table.csv",
+    "reports\\pr_curve.png",
+    "reports\\calibration_curve.png",
+    "reports\\calibration_before_after.png",
+    "reports\\lift_by_decile.png",
+    "reports\\cost_sweep_manual_pack_check.csv",
+    "reports\\cost_sweep_remove_discount.csv",
+    "reports\\cost_sweep_remove_cod.csv",
+    "reports\\money_confusion_matrix.png",
+    "reports\\cost_vs_threshold.png",
+    "reports\\per_action_thresholds.png",
+    "reports\\baseline_comparison.csv",
+    "reports\\baseline_comparison.png",
+    "reports\\cost_sensitivity.csv",
+    "reports\\cost_sensitivity_heatmap.png",
+    "reports\\cost_sensitivity_savings.png",
+    "reports\\stability_backtest.csv",
+    "reports\\stability.png",
+    "reports\\segment_metrics.csv",
+    "reports\\segment_metrics.png",
+    "reports\\fairness_by_segment.csv",
+    "reports\\fairness_by_segment.png",
+    "reports\\precision_at_k.csv",
+    "reports\\precision_at_k.png",
+    "reports\\selective_labels_comparison.csv",
+    "reports\\selective_labels.png",
+    "reports\\shap_global_importance.csv",
+    "reports\\shap_global_importance.png",
+    "reports\\shap_summary.png",
+    "reports\\gain_importance.csv",
+    "reports\\reason_code_examples.csv",
+    "models\\return_risk_model.joblib",
+    "models\\customer_profiles.parquet",
+    "reports\\scored_test_orders.csv",
+    "data\\sample\\sample_orders.csv"
+  ]
+}
