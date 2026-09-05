@@ -324,5 +324,5 @@ exact cost assumptions that priced it.
 make install && make test && make demo
 ```
 
-CI runs the suite on Python 3.11/3.12/3.13 against the synthetic dataset, so it never
+CI runs the suite on Python 3.12/3.13 against the synthetic dataset, so it never
 needs the 45 MB UCI download, and finishes with an end-to-end pipeline smoke run.

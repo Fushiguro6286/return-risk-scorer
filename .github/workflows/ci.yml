@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        # 3.12 is the floor: scipy 1.18.x requires >=3.12, so 3.11 cannot install
+        # the pinned set at all.
+        python-version: ["3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4

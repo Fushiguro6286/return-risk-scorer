@@ -1,5 +1,5 @@
 # Pinned so a fresh clone reproduces the numbers in README.md exactly.
-# Python 3.11+ (developed and verified on 3.13).
+# Python 3.12+ (developed and verified on 3.13). scipy 1.18 sets the 3.12 floor.
 
 # --- core modelling ---
 numpy==2.3.5
