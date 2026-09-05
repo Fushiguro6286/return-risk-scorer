@@ -49,6 +49,20 @@ class Config(Mapping[str, Any]):
     def as_dict(self) -> dict[str, Any]:
         return dict(self._data)
 
+    # ------------------------------------------------------------------ pickling
+    # A trained model pickles the Config it was fitted with, so the Config has to
+    # survive crossing an OS boundary. `Path` does not: pickling a WindowsPath and
+    # loading it on Linux raises UnsupportedOperation before the model is reachable,
+    # which silently makes every model file host-specific. The path is only ever read
+    # for error messages, so it travels as a plain string and is rehydrated into
+    # whatever flavour of Path the loading machine actually has.
+    def __getstate__(self) -> dict[str, Any]:
+        return {"_data": self._data, "path": str(self.path)}
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        object.__setattr__(self, "_data", state["_data"])
+        object.__setattr__(self, "path", Path(state["path"]))
+
 
 def load_config(path: str | Path | None = None) -> Config:
     """Read config.yaml. Kept side-effect free so tests can point at a temp copy."""
